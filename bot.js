@@ -1,35 +1,44 @@
 const TelegramBot = require("node-telegram-bot-api");
+const express = require("express");
 
-const token = "8097439513:AAE8UfQlPhMdXMmor2Dv4ZdG2kfnGI0_xro"; // BotFather dan olingan token
-const driversGroupId = -1002949281611; // Shaxsiy haydovchilar guruhi chat_id
+const token = process.env.BOT_TOKEN || "8097439513:AAE8UfQlPhMdXMmor2Dv4ZdG2kfnGI0_xro"; // Render envda saqlanadi
+const driversGroupId = -1002949281611; // haydovchilar guruhi chat_id
 
-const bot = new TelegramBot(token, { polling: true });
+const bot = new TelegramBot(token, { polling: false }); // endi polling emas
+const app = express();
+app.use(express.json());
 
-let userData = {}; // vaqtinchalik saqlash
+// webhookni sozlash
+bot.setWebHook(`https://sening-app.onrender.com/${token}`);
 
-// START
+// vaqtinchalik saqlash
+let userData = {};
+
+// /start komandasi
 bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
   userData[chatId] = {};
-  bot.sendMessage(chatId, "Assalomu alaykum! Telefon raqamingizni yuboring:");
+  bot.sendMessage(chatId, "Assalomu alaykum! Telefon1 raqamingizni yuboring:");
 });
 
-// Telefon raqam qabul qilish
+// xabarlarni tutish
 bot.on("message", (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text;
 
-  // Agar userData mavjud bo'lsa va telefon bo'sh bo'lsa
+  // agar telefon raqam kiritilmagan bo‘lsa
   if (userData[chatId] && !userData[chatId].phone && text !== "/start") {
     userData[chatId].phone = text;
-    return bot.sendMessage(chatId, "Qayerdan qayerga borasiz? (Masalan: Qoqon Fargona)");
+    return bot.sendMessage(
+      chatId,
+      "Qayerdan qayerga borasiz? (Masalan: Qoqon Farg‘ona)"
+    );
   }
 
-  // Agar telefon kiritilgan bo'lsa, endi yo'nalishni so'raymiz
+  // agar telefon raqam bor, lekin yo‘nalish yo‘q bo‘lsa
   if (userData[chatId] && userData[chatId].phone && !userData[chatId].route) {
     userData[chatId].route = text;
 
-    // Buttonlar (1–4 kishi)
     const options = {
       reply_markup: {
         inline_keyboard: [
@@ -49,21 +58,20 @@ bot.on("message", (msg) => {
   }
 });
 
-// Button bosilganda
-// Button bosilganda
+// button bosilganda
 bot.on("callback_query", (query) => {
   const chatId = query.message.chat.id;
   const people = query.data;
 
   userData[chatId].people = people;
 
-  // Foydalanuvchiga xabar
+  // foydalanuvchiga xabar
   bot.sendMessage(
     chatId,
     "✅ Shofyorlar tez orada bog‘lanadi.\n\n🚕 Yangi taksi chaqirish uchun /start buyrug‘ini bosing."
   );
 
-  // Haydovchilar guruhiga buyurtmani yuborish
+  // haydovchilar guruhiga xabar
   const order = userData[chatId];
   const msgToDrivers = `
 🚖 Yangi buyurtma!
@@ -71,9 +79,21 @@ bot.on("callback_query", (query) => {
 📍 Yo'nalish: ${order.route}
 👥 Odamlar soni: ${order.people}
   `;
+
   bot.sendMessage(driversGroupId, msgToDrivers);
 
-  // Malumotni tozalash
+  // malumotni tozalash
   delete userData[chatId];
 });
 
+// Telegram serverdan keladigan webhook requestlarni qabul qilish
+app.post(`/${token}`, (req, res) => {
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
+});
+
+// serverni ishga tushirish
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log("🚀 Bot server running on port " + PORT);
+});
