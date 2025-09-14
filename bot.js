@@ -15,7 +15,7 @@ const driversGroupId = -1002949281611;
 let userData = {};
 
 // botni webhook rejimida yaratamiz
-const bot = new TelegramBot(token, { polling: false });
+const bot = new TelegramBot(token, { polling: false});
 
 // webhook URL
 const webhookUrl = `${url}/bot${token}`;
