@@ -11,11 +11,18 @@ const url = process.env.RENDER_EXTERNAL_URL; // Render url (https://project.onre
 // haydovchilar guruhi
 const driversGroupId = -1002949281611;
 
+// admin id
+const adminId = 7341387002;
+
 // vaqtinchalik saqlash
 let userData = {};
+let stats = {
+  started: 0,   // /start bosganlar soni
+  ordered: 0    // buyurtma qilganlar soni
+};
 
 // botni webhook rejimida yaratamiz
-const bot = new TelegramBot(token, { polling: false});
+const bot = new TelegramBot(token, { polling: false });
 
 // webhook URL
 const webhookUrl = `${url}/bot${token}`;
@@ -33,8 +40,28 @@ app.post(`/bot${token}`, (req, res) => {
 // /start komandasi
 bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
+
+  // faqat birinchi marta bosganda sanaymiz
+  if (!userData[chatId]) {
+    stats.started++;
+  }
+
   userData[chatId] = {};
   bot.sendMessage(chatId, "Assalomu alaykum! Telefon raqamingizni yuboring:");
+});
+
+// /admin komandasi - faqat adminId uchun
+bot.onText(/\/admin/, (msg) => {
+  const chatId = msg.chat.id;
+
+  if (chatId === adminId) {
+    const report = `
+📊 Statistika:
+👥 Start bosganlar: ${stats.started}
+🚕 Buyurtma qilganlar: ${stats.ordered}
+    `;
+    bot.sendMessage(chatId, report);
+  }
 });
 
 // xabarlarni tutish
@@ -94,8 +121,43 @@ bot.on("callback_query", (query) => {
 
   bot.sendMessage(driversGroupId, msgToDrivers);
 
+  // buyurtma sonini oshiramiz
+  stats.ordered++;
+
   delete userData[chatId];
 });
+
+// guruhga yangi odam kirganda - faqat admin bo‘lsa ishlaydi
+// guruhga yangi odam kirganda - faqat admin bo‘lsa ishlaydi
+bot.on("message", (msg) => {
+  if (msg.new_chat_members && msg.chat.id === driversGroupId) {
+    msg.new_chat_members.forEach((member) => {
+      const name = member.username
+        ? `@${member.username}`
+        : member.first_name || "foydalanuvchi";
+
+      const options = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: "🚖 Botga o‘tish",
+                url: "https://t.me/Qoqon_Fargona_tez_TaxiBot", // bu yerga o‘z bot linkini yozasiz
+              },
+            ],
+          ],
+        },
+      };
+
+      bot.sendMessage(
+        driversGroupId,
+        `👋 Xush kelibsiz, ${name}!\n🚖 Tez taksi chaqirish uchun botdan foydalaning 👇`,
+        options
+      );
+    });
+  }
+});
+ 
 
 // serverni ishga tushirish
 app.listen(port, () => {
